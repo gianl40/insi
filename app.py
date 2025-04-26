@@ -92,7 +92,7 @@ def setup_rag_agent():
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     documents = load_documents()
     if not documents:
-        return None, "Geen documenten gevonden om te verwerken."
+        return None, "Geen documenten gevonden, upload eerst bestanden via /upload."
     vectorstore = FAISS.from_documents(documents, embeddings)
     if not OPENAI_API_KEY:
         return None, "OpenAI API-sleutel niet ingesteld."
@@ -107,6 +107,8 @@ def setup_rag_agent():
 
 # Query functie
 async def query_rag_agent(query, qa_chain):
+    if qa_chain is None:
+        return {"error": "Geen documenten beschikbaar, upload eerst bestanden via /upload."}
     result = qa_chain({"query": query})
     return {
         "answer": result["result"],
@@ -116,7 +118,7 @@ async def query_rag_agent(query, qa_chain):
 # Flask API endpoints
 qa_chain, error = setup_rag_agent()
 if error:
-    raise Exception(error)
+    app.logger.warning(error)  # Log de waarschuwing, maar crash niet
 
 @app.route('/upload', methods=['POST'])
 async def upload_file():
@@ -125,6 +127,11 @@ async def upload_file():
     file = request.files['file']
     file_path = os.path.join(DATA_DIR, file.filename)
     file.save(file_path)
+    # Herlaad RAG-agent na upload
+    global qa_chain
+    qa_chain, error = setup_rag_agent()
+    if error:
+        return jsonify({"message": f"Bestand {file.filename} geüpload, maar: {error}"}), 200
     return jsonify({"message": f"Bestand {file.filename} geüpload"}), 200
 
 @app.route('/query', methods=['POST'])
