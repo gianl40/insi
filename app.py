@@ -8,6 +8,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.docstore.document import Document
 from langchain.chains import RetrievalQA
+from langchain.llms import OpenAI
 import requests
 import PyPDF2
 import textract
@@ -19,7 +20,7 @@ DATA_DIR = "data"
 ALLOWED_TEXT_EXTENSIONS = [".txt", ".pdf"]
 ALLOWED_SPREADSHEET_EXTENSIONS = [".csv", ".xlsx"]
 ALLOWED_EVENT_EXTENSIONS = [".ics"]
-XAI_API_KEY = os.getenv("XAI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Maak data directory
 if not os.path.exists(DATA_DIR):
@@ -86,28 +87,6 @@ def load_documents():
             documents.append(Document(page_content=content, metadata={"source": file_name}))
     return documents
 
-# xAI API-integratie
-class XAILLM:
-    def __init__(self, api_key):
-        self.api_key = api_key
-        self.api_url = "https://api.x.ai/v1/completions"
-
-    def __call__(self, prompt, **kwargs):
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
-        }
-        data = {
-            "prompt": prompt,
-            "max_tokens": kwargs.get("max_tokens", 100),
-            "temperature": kwargs.get("temperature", 0.7)
-        }
-        response = requests.post(self.api_url, headers=headers, json=data)
-        if response.status_code == 200:
-            return response.json()["choices"][0]["text"]
-        else:
-            raise Exception(f"API error: {response.status_code} - {response.text}")
-
 # RAG-agent setup
 def setup_rag_agent():
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -115,9 +94,9 @@ def setup_rag_agent():
     if not documents:
         return None, "Geen documenten gevonden om te verwerken."
     vectorstore = FAISS.from_documents(documents, embeddings)
-    if not XAI_API_KEY:
-        return None, "xAI API-sleutel niet ingesteld."
-    llm = XAILLM(api_key=XAI_API_KEY)
+    if not OPENAI_API_KEY:
+        return None, "OpenAI API-sleutel niet ingesteld."
+    llm = OpenAI(api_key=OPENAI_API_KEY, model_name="gpt-3.5-turbo")
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",
