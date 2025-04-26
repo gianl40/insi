@@ -1,0 +1,12 @@
+langchain==0.0.352
+langchain-community==0.0.6
+faiss-cpu==1.7.4
+sentence-transformers==2.2.2
+pandas==2.0.3
+requests==2.31.0
+PyPDF2==3.0.1
+textract==1.6.5
+icalendar==5.0.7
+python-dotenv==1.0.0
+gunicorn==21.2.0
+flask==3.0.0
