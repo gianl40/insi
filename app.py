@@ -1,19 +1,18 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import os
-import asyncio
 import pandas as pd
-import json
 from icalendar import Calendar
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.docstore.document import Document
 from langchain.chains import RetrievalQA
 from langchain.llms import OpenAI
-import requests
 import PyPDF2
 import textract
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})  # Sta alle origines toe voor alle endpoints
 
 # Configuratie
 DATA_DIR = "data"
@@ -106,7 +105,7 @@ def setup_rag_agent():
     return qa_chain, None
 
 # Query functie
-async def query_rag_agent(query, qa_chain):
+def query_rag_agent(query, qa_chain):
     if qa_chain is None:
         return {"error": "Geen documenten beschikbaar, upload eerst bestanden via /upload."}
     result = qa_chain({"query": query})
@@ -118,10 +117,10 @@ async def query_rag_agent(query, qa_chain):
 # Flask API endpoints
 qa_chain, error = setup_rag_agent()
 if error:
-    app.logger.warning(error)  # Log de waarschuwing, maar crash niet
+    app.logger.warning(error)
 
 @app.route('/upload', methods=['POST'])
-async def upload_file():
+def upload_file():
     if 'file' not in request.files:
         return jsonify({"error": "Geen bestand geüpload"}), 400
     file = request.files['file']
@@ -135,11 +134,11 @@ async def upload_file():
     return jsonify({"message": f"Bestand {file.filename} geüpload"}), 200
 
 @app.route('/query', methods=['POST'])
-async def query():
+def query():
     data = request.get_json()
     if not data or 'query' not in data:
         return jsonify({"error": "Geen query opgegeven"}), 400
-    result = await query_rag_agent(data['query'], qa_chain)
+    result = query_rag_agent(data['query'], qa_chain)
     return jsonify(result), 200
 
 if __name__ == '__main__':
